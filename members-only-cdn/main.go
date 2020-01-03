@@ -102,9 +102,7 @@ func s3UrlWithPreSign (keyName string, bucketName string, region string) (string
 
 func outputLog2CloudWatch (userId string, s3Key string, err string) {
   log := fmt.Sprintf(",%s,\"s3://%s%s\",\"%s\"", userId, EnvS3BucketName, s3Key, err)
-  resp, e := cloudWatchLogs.OutputLog2CloudWatch(&log)
-  pp.Print(resp)
-  pp.Print(e)
+  cloudWatchLogs.OutputLog2CloudWatch(&log)
 }
 
 func checkPermittedFileId (ch chan<- bool, waitGroup *sync.WaitGroup, projectId string, objectId string, userId string, requestedFileId string) {
