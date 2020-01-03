@@ -5,16 +5,16 @@ info:
 servers:
   - url: 'http://localhost:3000'
 paths:
-  '/projects/{project_name}/objects/{object_name}/users/{user_id}/files/{file_id}':
+  '/projects/{project_id}/objects/{object_id}/users/{user_id}/files/{file_id}':
     parameters:
       - type: string
-        name: project_name
+        name: project_id
         in: path
         required: true
         schema:
           type: string
       - type: string
-        name: object_name
+        name: object_id
         in: path
         required: true
         schema:

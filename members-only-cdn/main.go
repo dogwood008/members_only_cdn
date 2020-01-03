@@ -104,13 +104,13 @@ func outputLog2CloudWatch (userId string, s3Key string, err string) {
 }
 
 func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-  // Path: /projects/{project_name}/objects/{object_name}/users/{user_id}/files/{id_full}
+  // Path: /projects/{project_id}/objects/{object_id}/users/{user_id}/files/{id_full}
   params := request.PathParameters
-  projectName := params["project_name"]
-  objectName := params["object_name"]
+  projectId := params["project_id"]
+  objectId := params["object_id"]
   userIdInPath := params["user_id"]
   fileId := params["file_id"]
-  s3Key := fmt.Sprintf("/%s/%s/%s", projectName, objectName, fileId)
+  s3Key := fmt.Sprintf("/%s/%s/%s", projectId, objectId, fileId)
 
   authHeader := request.Headers["Authorization"]
   userIdInAuthHeader, err := auth(authHeader)
