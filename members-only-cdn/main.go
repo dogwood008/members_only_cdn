@@ -170,7 +170,8 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
   outputLog2CloudWatch(userIdInPath, s3Key, "succeeded")
 	return events.APIGatewayProxyResponse{
     Body      : presignedUrl,
-		StatusCode: 200,
+		StatusCode: 302,
+    Headers   : map[string]string{"Location": presignedUrl},
 	}, nil
 }
 
