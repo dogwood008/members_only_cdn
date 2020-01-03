@@ -1,16 +1,17 @@
-package ddb
+package authorization
 
 import (
-  "fmt"
   "os"
   "time"
   "errors"
+  "strconv"
+  "regexp"
 
   "github.com/aws/aws-sdk-go/aws"
   "github.com/aws/aws-sdk-go/aws/session"
 
-  "github.com/guregu/dynamo"
   // for debug: "github.com/k0kubun/pp"
+  "github.com/dogwood008/members_only_cdn/ddb"
 )
 
 type Permission struct {
@@ -26,15 +27,10 @@ var (
 	// ErrNoIP No IP found in response
 	ErrNoTableNameGiven = errors.New("No table name given.")
 
-  EnvDynamoDBTableName = os.Getenv("DYNAMO_DB_TABLE_NAME")
-
   EnvAWSRegion = os.Getenv("AWS_REGION")
 
   awsSession = session.New()
   awsConfig  = aws.NewConfig().WithRegion(EnvAWSRegion)
-
-  ddb = dynamo.New(awsSession, awsConfig)
-  table = ddb.Table(EnvDynamoDBTableName)
 )
 
 const (
@@ -42,23 +38,30 @@ const (
   sortKeyName = "project_id_and_object_id"
 )
 
+// https://teratail.com/questions/99069
+func convertAtoI(str string) int {
+  var regex = regexp.MustCompile(`\d+`)
+  value, _ := strconv.Atoi(regex.FindString(str))
+  return value
+}
 
-func Fetch(projectId string, objectId string, userId string) (*Permission, error){
-  if len(EnvDynamoDBTableName) == 0 {
-    return nil, ErrNoTableNameGiven
+func Authorize(projectId string, objectId string, userId string, requiredFileId string) bool {
+  requiredFileIdInt := convertAtoI(requiredFileId)
+  permission, err := ddb.Fetch(projectId, objectId, userId)
+  if err != nil {
+    // pp.Print(err)
+    return false
   }
-
-  partitionKey := userId
-  sortKey := fmt.Sprintf("%s_%s", projectId, objectId)
-
-  var result Permission
-  err := table.Get(partitionKeyName, partitionKey).Range(sortKeyName, dynamo.Equal, sortKey).One(&result)
-  return &result, err
+  allowedFileId := convertAtoI(permission.FileId)
+  /*pp.Println(requiredFileIdInt)
+  pp.Println(allowedFileId)
+  pp.Println(permission)*/
+  return requiredFileIdInt <= allowedFileId
 }
 
 /* for debug
 func main() {
-  resp, _ := fetch("a", "b", "001")
+  resp := Authorize("a", "b", "001", "000.csv")
   pp.Print(resp)
 }
-*/
+//*/
