@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  members_only_cdn
+  
+  Sample SAM Template for members_only_cdn
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 5
+
+Resources:
+  MembersOnlyCdnAPI:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Stage
+      DefinitionBody:
+        Fn::Transform:
+          Name: AWS::Include
+          Parameters:
+            Location: ./members-only-cdn/swagger.yaml
+ 
+  MembersOnlyCdnFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: members-only-cdn/
+      Handler: members-only-cdn
+      Runtime: go1.x
+      Tracing: Active # https://docs.aws.amazon.com/lambda/latest/dg/lambda-x-ray.html
+      Environment: # More info about Env Vars: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#environment-object
+        Variables:
+          USER_TOKEN_MAP_JSON: '{"Maps":{"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad": "001"}}'
+          BUCKET_NAME: dogwood008-members-only-cdn
+          AWS_REGION: us-west-2
+          AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+          AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+          DYNAMO_DB_TABLE_NAME: members-only-cdn-access-logs
+          CLOUD_WATCH_LOG_GROUP_NAME: members-only-cdn
+          CLOUD_WATCH_ENABLE_SETUP: 'true'
+
+
+Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+  MembersOnlyCdnAPI:
+    Description: "API Gateway endpoint URL for Prod environment for First Function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/"
+  MembersOnlyCdnFunction:
+    Description: "First Lambda Function ARN"
+    Value: !GetAtt MembersOnlyCdnFunction.Arn
+  MembersOnlyCdnFunctionIamRole:
+    Description: "Implicit IAM Role created for Members Only CDN function"
+    Value: !GetAtt MembersOnlyCdnFunctionRole.Arn

@@ -1,0 +1,67 @@
+openapi: 3.0.0
+info:
+  title: get-file.v1.yaml
+  version: '1.0'
+servers:
+  - url: 'http://localhost:3000'
+paths:
+  '/projects/{project_id}/objects/{object_id}/users/{user_id}/files/{file_id}':
+    parameters:
+      - type: string
+        name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - type: string
+        name: object_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - type: string
+        name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+      - type: string
+        name: file_id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Your GET endpoint
+      tags: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+              examples:
+                example:
+                  value:
+                    url: 'https://example.com'
+      operationId: get-contest_name-object_name-user_id-id_full
+      requestBody: {}
+      description: ''
+      x-amazon-apigateway-integration:
+        uri:
+          'Fn::Sub': 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MembersOnlyCdnFunction.Arn}/invocations'
+        passthroughBehavior: naver
+        httpMethod: POST
+        type: aws_proxy
+      parameters: []
+      security:
+        - key: []
+components:
+  schemas: {}
+  securitySchemes:
+    key:
+      type: oauth2
