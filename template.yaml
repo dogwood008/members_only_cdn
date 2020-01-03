@@ -28,12 +28,6 @@ Resources:
       Handler: members-only-cdn
       Runtime: go1.x
       Tracing: Active # https://docs.aws.amazon.com/lambda/latest/dg/lambda-x-ray.html
-      Events:
-        CatchAll:
-          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
-          Properties:
-            Path: /contests/{contest_name}/objects/{object_name}/users/{user_id}/files/{file_id}
-            Method: GET
       Environment: # More info about Env Vars: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#environment-object
         Variables:
           USER_TOKEN_MAP_JSON: '{"Maps":{"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad": "001"}}'
@@ -43,7 +37,7 @@ Resources:
           AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
           DYNAMO_DB_TABLE_NAME: members-only-cdn-access-logs
           CLOUD_WATCH_LOG_GROUP_NAME: members-only-cdn
-          CLOUD_WATCH_ENABLE_SETUP: 'false'
+          CLOUD_WATCH_ENABLE_SETUP: 'true'
 
 
 Outputs:
