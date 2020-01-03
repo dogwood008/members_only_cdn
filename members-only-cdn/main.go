@@ -6,6 +6,7 @@ import (
   "os"
   "strings"
   "time"
+  "sync"
 
   "crypto/sha256"
   "encoding/hex"
@@ -22,6 +23,7 @@ import (
   "github.com/k0kubun/pp"
 
   "github.com/dogwood008/members_only_cdn/cwlogs"
+  "github.com/dogwood008/members_only_cdn/authorization"
 )
 
 var (
@@ -99,8 +101,16 @@ func s3UrlWithPreSign (keyName string, bucketName string, region string) (string
 }
 
 func outputLog2CloudWatch (userId string, s3Key string, err string) {
-  log := fmt.Sprintf(",%s,\"s3://%s%s\",%s", userId, EnvS3BucketName, s3Key, err)
-  cloudWatchLogs.OutputLog2CloudWatch(&log)
+  log := fmt.Sprintf(",%s,\"s3://%s%s\",\"%s\"", userId, EnvS3BucketName, s3Key, err)
+  resp, e := cloudWatchLogs.OutputLog2CloudWatch(&log)
+  pp.Print(resp)
+  pp.Print(e)
+}
+
+func checkPermittedFileId (ch chan<- bool, waitGroup *sync.WaitGroup, projectId string, objectId string, userId string, requestedFileId string) {
+  isOkToAllow := authorization.Authorize(projectId, objectId, userId, requestedFileId)
+  ch <- isOkToAllow
+  waitGroup.Done()
 }
 
 func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -111,6 +121,12 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
   userIdInPath := params["user_id"]
   fileId := params["file_id"]
   s3Key := fmt.Sprintf("/%s/%s/%s", projectId, objectId, fileId)
+
+  waitGroup := &sync.WaitGroup{}
+  waitGroup.Add(1)
+  checkPermissionCh := make(chan bool, 1)
+  defer close(checkPermissionCh)  // https://qiita.com/convto/items/b2e95e549f35a1beb0b8
+  go checkPermittedFileId(checkPermissionCh, waitGroup, projectId, objectId, userIdInPath, fileId)
 
   authHeader := request.Headers["Authorization"]
   userIdInAuthHeader, err := auth(authHeader)
@@ -139,6 +155,17 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
     return events.APIGatewayProxyResponse{
       Body      : body,
       StatusCode: 500,
+    }, nil
+  }
+
+  waitGroup.Wait()
+  isOkToAllow := <-checkPermissionCh
+  if !isOkToAllow {
+    body := "The requested file id is invalid for you. (Error code: 004)"
+    outputLog2CloudWatch(userIdInPath, s3Key, body)
+    return events.APIGatewayProxyResponse{
+      Body      : body,
+      StatusCode: 403,
     }, nil
   }
 
