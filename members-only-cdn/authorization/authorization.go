@@ -10,7 +10,7 @@ import (
   "github.com/aws/aws-sdk-go/aws"
   "github.com/aws/aws-sdk-go/aws/session"
 
-  // for debug: "github.com/k0kubun/pp"
+  // debug: "github.com/k0kubun/pp"
   "github.com/dogwood008/members_only_cdn/ddb"
 )
 
@@ -45,18 +45,18 @@ func convertAtoI(str string) int {
   return value
 }
 
-func Authorize(projectId string, objectId string, userId string, requiredFileId string) bool {
-  requiredFileIdInt := convertAtoI(requiredFileId)
+func Authorize(projectId string, objectId string, userId string, requestedFileId string) bool {
+  requestedFileIdInt := convertAtoI(requestedFileId)
   permission, err := ddb.Fetch(projectId, objectId, userId)
   if err != nil {
     // pp.Print(err)
     return false
   }
   allowedFileId := convertAtoI(permission.FileId)
-  /*pp.Println(requiredFileIdInt)
+  /*pp.Println(requestedFileIdInt)
   pp.Println(allowedFileId)
   pp.Println(permission)*/
-  return requiredFileIdInt <= allowedFileId
+  return requestedFileIdInt <= allowedFileId
 }
 
 /* for debug
