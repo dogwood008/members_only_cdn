@@ -10,7 +10,7 @@ import (
   "github.com/aws/aws-sdk-go/aws"
   "github.com/aws/aws-sdk-go/aws/session"
 
-  // debug: "github.com/k0kubun/pp"
+  "github.com/k0kubun/pp"
   "github.com/dogwood008/members_only_cdn/ddb"
 )
 
@@ -49,7 +49,7 @@ func Authorize(projectId string, objectId string, userId string, requestedFileId
   requestedFileIdInt := convertAtoI(requestedFileId)
   permission, err := ddb.Fetch(projectId, objectId, userId)
   if err != nil {
-    // pp.Print(err)
+    pp.Print(err)
     return false
   }
   allowedFileId := convertAtoI(permission.FileId)
@@ -59,6 +59,12 @@ func Authorize(projectId string, objectId string, userId string, requestedFileId
   return requestedFileIdInt <= allowedFileId
 }
 
+func init () {
+  if os.Getenv("ENABLE_COLOR_PP") == "false" {
+    // https://github.com/k0kubun/pp/issues/26#issuecomment-544108705
+    pp.ColoringEnabled = false
+  }
+}
 /* for debug
 func main() {
   resp := Authorize("a", "b", "001", "000.csv")
