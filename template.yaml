@@ -5,6 +5,8 @@ Description: >
   
   Sample SAM Template for members_only_cdn
 
+# https://github.com/awslabs/aws-sam-cli/issues/1163
+# hit this to deploy: `sam deploy --parameter-overrides 'StageName=staging ResourcePrefix=dogwood008'`
 Parameters:
   StageName:
     Type: String
@@ -12,9 +14,10 @@ Parameters:
     - development
     - staging
     - production
-    Default: staging
+    Default: staging  # should not be work fine
+  ResourcePrefix:
+    Type: String
 
-# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
   Function:
     Timeout: 5
@@ -27,41 +30,78 @@ Resources:
     Properties:
       StageName: !Ref StageName
       DefinitionBody:
-        Fn::Transform:
+        Fn::Transform:  # https://dev.classmethod.jp/cloud/aws/serverless-swagger-apigateway/#toc-aws-sam1
           Name: AWS::Include
           Parameters:
             Location: ./members-only-cdn/swagger.yaml
  
+  # https://dev.classmethod.jp/cloud/aws/serverless-swagger-apigateway/
   MembersOnlyCdnFunction:
-    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Type: AWS::Serverless::Function
     Properties:
       CodeUri: members-only-cdn/
       Handler: members-only-cdn
       Runtime: go1.x
-      Tracing: Active # https://docs.aws.amazon.com/lambda/latest/dg/lambda-x-ray.html
-      Environment: # More info about Env Vars: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#environment-object
+      Tracing: Active
+      Environment:
         Variables:
           USER_TOKEN_MAP_JSON: '{"Maps":{"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad": "001"}}'
-          BUCKET_NAME: dogwood008-members-only-cdn
-          # Uncomment when local deploy: AWS_REGION: us-west-2
-          # Uncomment when local deploy: AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
-          # Uncomment when local deploy: AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+          BUCKET_NAME: !Sub '${ResourcePrefix}-members-only-cdn'
           DYNAMO_DB_TABLE_NAME: members-only-cdn-permissions
           CLOUD_WATCH_LOG_GROUP_NAME: members-only-cdn
           CLOUD_WATCH_ENABLE_SETUP: 'true'
           ENABLE_COLOR_PP: 'false'
 
+  # https://docs.aws.amazon.com/ja_jp/AWSCloudFormation/latest/UserGuide/aws-resource-iam-policy.html
+  MembersOnlyCdnFunctionPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: MembersOnlyCdnFunctionPolicy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Action:
+              - 's3:GetObject'
+              - 'logs:CreateLogStream'
+              - 'logs:DescribeLogGroups'
+              - 'lambda:InvokeFunction'
+              - 'logs:DescribeLogStreams'
+              - 'dynamodb:GetItem'
+            Resource:
+              - !Sub 'arn:aws:dynamodb:*:${AWS::AccountId}:table/members-only-cdn-permissions'
+              - !Sub 'arn:aws:lambda:*:${AWS::AccountId}:function:*'
+              - !Sub 'arn:aws:s3:::${ResourcePrefix}-members-only-cdn/*'
+              - 'arn:aws:logs:*:*:log-group:*'
+          -
+            Effect: Allow
+            Action: 'logs:PutLogEvents'
+            Resource: 'arn:aws:logs:*:*:log-group:*:log-stream:*'
+          - 
+            Effect: Allow
+            Action: 'logs:CreateLogGroup'
+            Resource: '*'
+      Roles:
+        - Ref: MembersOnlyCdnFunctionRole  # https://dev.classmethod.jp/cloud/aws/aws-sam-policy-role-used/#toc-1
+
+  # https://dev.classmethod.jp/server-side/serverless/sam-try-and-error/#toc-invalid-permissions-on-lambda-function
+  MembersOnlyCdnLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref MembersOnlyCdnFunction
+      Principal: apigateway.amazonaws.com
 
 Outputs:
-  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
-  # Find out more about other implicit resources you can reference within SAM
-  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
   MembersOnlyCdnAPI:
-    Description: "API Gateway endpoint URL for Prod environment for First Function"
-    Value: !Sub "https://${MembersOnlyCdnAPI}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/"
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${MembersOnlyCdnAPI}.execute-api.${AWS::Region}.amazonaws.com/${StageName}/v1/"
   MembersOnlyCdnFunction:
     Description: "First Lambda Function ARN"
     Value: !GetAtt MembersOnlyCdnFunction.Arn
   MembersOnlyCdnFunctionIamRole:
     Description: "Implicit IAM Role created for Members Only CDN function"
     Value: !GetAtt MembersOnlyCdnFunctionRole.Arn
+    # https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#properties
+    # https://dev.classmethod.jp/cloud/aws/aws-sam-policy-role-used/#toc-1
