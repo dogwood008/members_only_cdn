@@ -1,67 +1,63 @@
 openapi: 3.0.0
+security:
+  - Bearer: []
 info:
-  title: get-file.v1.yaml
+  title: swagger.yaml
   version: '1.0'
 servers:
   - url: 'http://localhost:3000'
 paths:
   '/projects/{project_id}/objects/{object_id}/users/{user_id}/files/{file_id}':
-    parameters:
-      - type: string
-        name: project_id
-        in: path
-        required: true
-        schema:
-          type: string
-      - type: string
-        name: object_id
-        in: path
-        required: true
-        schema:
-          type: string
-      - type: string
-        name: user_id
-        in: path
-        required: true
-        schema:
-          type: string
-      - type: string
-        name: file_id
-        in: path
-        required: true
-        schema:
-          type: string
     get:
       summary: Your GET endpoint
+      operationId: get-contest_name-object_name-user_id-id_full
       tags: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: object_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: file_id
+          in: path
+          required: true
+          schema:
+            type: string
       responses:
-        '200':
-          description: OK
+        '302':
+          description: an S3 pre-signed URL
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  url:
-                    type: string
-              examples:
-                example:
-                  value:
-                    url: 'https://example.com'
-      operationId: get-contest_name-object_name-user_id-id_full
-      requestBody: {}
+                $ref: "#/components/schemas/Url"
       description: ''
       x-amazon-apigateway-integration:
         uri:
           'Fn::Sub': 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MembersOnlyCdnFunction.Arn}/invocations'
-        passthroughBehavior: naver
+        passthroughBehavior: NAVER
         httpMethod: POST
         type: aws_proxy
-      parameters: []
-      security:
-        - key: []
 components:
-  schemas: {}
+  schemas:
+    Url:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
   securitySchemes:
-    key:
-      type: oauth2
+    Bearer:
+      type: http
+      scheme: bearer
+      description: Credentials or access token for API
