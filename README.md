@@ -2,21 +2,43 @@
 
 ## What is this?
 
-This is a Golang sample SAM project that made from template.
+Go 言語でかかれた、SAM (Serverless Application Model) のサンプルプロジェクトです。テンプレートから改造されて作られました。
 
-## What can this do?
+This is a Golang sample SAM (Serverless Application Model) project that made from template.
 
-API Gateway を通して Lambdaへアクセスすると、S3の指定のファイルへ10分間だけアクセスできるURLを発行します。
+<!-- TOC depthFrom:1 depthTo:6 withLinks:1 updateOnSave:1 orderedList:0 -->
 
-302で応答するので、curlの `--location` オプションを使用すれば、自動的にS3からcurlがダウンロードしてくれます。
+- [members_only_cdn](#membersonlycdn)
+	- [What is this?](#what-is-this)
+	- [What can this do?](#what-can-this-do)
+	- [Directories](#directories)
+	- [Requirements](#requirements)
+	- [Setup process](#setup-process)
+		- [Environment variables](#environment-variables)
+		- [Installing dependencies](#installing-dependencies)
+		- [Building](#building)
+		- [Local development](#local-development)
+	- [Packaging and deployment](#packaging-and-deployment)
+		- [Testing](#testing)
+	- [Thanks to](#thanks-to)
 
-リクエストを受けた際、リクエストヘッダ内のBearerトークンを検証し、認可情報を Dynamo DB から取得して、本当に返答して良いかを確認した上で応答します。
+<!-- /TOC -->
 
 ---
 
-Request to a lambda through API Gateway, the lambda responsed 302 with a S3 pre-signed signature URL which is valid only in 10 minutes.
+## What can this do?
 
-You can get files on S3 which only authorized users can see like this:
+API Gateway を通して Lambda へアクセスすると、S3の指定のファイルへ10分間だけアクセスできるURLを発行します。
+
+302で応答するので、curlの `--location` オプションを使用すれば、自動的にS3からcurlがダウンロードしてくれます。
+
+リクエストを受けた際、リクエストヘッダ内のBearerトークンを検証し、認可情報を Dynamo DB から取得して、本当に返答して良いかを確認した上で応答します。この部分は[API Gateway Lambda オーソライザー](https://docs.aws.amazon.com/ja_jp/apigateway/latest/developerguide/apigateway-use-lambda-authorizer.html)を使用する方が筋が良いと思います（実装完了後に存在を知りました）。
+
+---
+
+Request to a lambda through API Gateway, the lambda will respond 302 with a S3 pre-signed signature URL which is valid only in 10 minutes.
+
+You can get files on S3 which only authorized users can see like below. But I recommend you to use [API Gateway Lambda Authorizers](https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-use-lambda-authorizer.html) because I didn't know this in development.
 
 ```bash
 curl -H 'Authorization: Bearer abc' http://localhost:3000/projects/a/objects/b/users/001/files/001.csv --location
@@ -65,16 +87,21 @@ There are defined in `template.yaml`.
   - `{"Maps":{"sha256hashed_password": "user_id", ...}}`
 - `BUCKET_NAME`
   - S3 bucket name from which users will download files
-- `AWS_REGION`
-  - Refer [instructions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-available-regions)
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
 - `DYNAMO_DB_TABLE_NAME`
   - The name of table in Dynamo DB in which permissions are saved
 - `CLOUD_WATCH_LOG_GROUP_NAME`
   - Log group name of CloudWatch Logs to save log
 - `CLOUD_WATCH_ENABLE_SETUP`
   - Whether create log stream and log group or not when which doesn't exist
+- `ENABLE_COLOR_PP`
+  - Output pp.Print in monochrome if set "false"
+
+And these envs are also needed in local development (you don't have to write in template.yaml, only in envs is enough):
+
+- `AWS_REGION`
+  - Refer [instructions](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-available-regions)
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
 
 ### Installing dependencies
 
@@ -113,14 +140,14 @@ sam local start-api
 
 If the previous command ran successfully you should now be able to hit the following local endpoint to invoke your function
 ```
-http://localhost:3000/projects/{project_id}/objects/{object_id}/users/{user_id}/files/{file_id}
+http://localhost:3000/v1/projects/{project_id}/objects/{object_id}/users/{user_id}/files/{file_id}
 
 e.g.)
-http://localhost:3000/projects/foo/objects/bar/users/001/files/12345
+http://localhost:3000/v1/projects/foo/objects/bar/users/001/files/12345
 ```
 **NOTE**: You have to add bearer token to header as this:
 ```shell
-curl -H 'Authorization: Bearer abc' http://localhost:3000/projects/foo/objects/bar/users/001/files/12345.csv
+curl -H 'Authorization: Bearer abc' http://localhost:3000/v1/projects/foo/objects/bar/users/001/files/12345.csv
 ```
 Then, you will get a URL which is S3 pre-signed URL like this:
 
@@ -148,7 +175,7 @@ AWS Lambda Python runtime requires a flat folder with all dependencies including
 To deploy your application for the first time, run the following in your shell:
 
 ```bash
-sam deploy --guided
+sam deploy --guided --parameter-overrides 'StageName=staging ResourcePrefix=dogwood008'
 ```
 
 The command will package and deploy your application to AWS, with a series of prompts:
@@ -173,51 +200,12 @@ go test -v ./hello-world/
 </p>
 </details>
 
-# Appendix
-
-### Golang installation
-
-Please ensure Go 1.x (where 'x' is the latest version) is installed as per the instructions on the official golang website: https://golang.org/doc/install
-
-A quickstart way would be to use Homebrew, chocolatey or your linux package manager.
-
-#### Homebrew (Mac)
-
-Issue the following command from the terminal:
-
-```shell
-brew install golang
-```
-
-If it's already installed, run the following command to ensure it's the latest version:
-
-```shell
-brew update
-brew upgrade golang
-```
-
-#### Chocolatey (Windows)
-
-Issue the following command from the powershell:
-
-```shell
-choco install golang
-```
-
-If it's already installed, run the following command to ensure it's the latest version:
-
-```shell
-choco upgrade golang
-```
-
-## Bringing to the next level
-
-Here are a few ideas that you can use to get more acquainted as to how this overall process works:
-
-* Create an additional API resource (e.g. /hello/{proxy+}) and return the name requested through this new path
-* Update unit test to capture that
-* Package & Deploy
-
-Next, you can use the following resources to know more about beyond hello world samples and how others structure their Serverless applications:
+## Thanks to
 
 * [AWS Serverless Application Repository](https://aws.amazon.com/serverless/serverlessrepo/)
+* [AWS Serverless Application Model (SAM)](https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md)
+* [【初心者向け】SwaggerとAWS SAMを使ってWebAPIを簡単に作ってみた](https://dev.classmethod.jp/cloud/aws/serverless-swagger-apigateway/)
+* [入社２週間でAWS SAMと格闘してハマったところ](https://dev.classmethod.jp/server-side/serverless/sam-try-and-error/)
+* [SAM Creates stage named "Stage" by default?](https://github.com/awslabs/serverless-application-model/issues/191)
+* [SAM deploy doesn't set environment variables](https://github.com/awslabs/aws-sam-cli/issues/1163)
+* [Swagger Editor](https://editor.swagger.io/)

@@ -20,7 +20,7 @@ import (
   //"github.com/aws/aws-sdk-go/aws/awserr"
   "github.com/aws/aws-sdk-go/service/s3"
 
-  "github.com/k0kubun/pp"
+  // for debug: "github.com/k0kubun/pp"
 
   "github.com/dogwood008/members_only_cdn/cwlogs"
   "github.com/dogwood008/members_only_cdn/authorization"
@@ -70,7 +70,6 @@ func userId(hash string, jsonString string) (string, error) {
   hmm := intf.(map[string]interface{})
   hmmm :=hmm["Maps"].(map[string]interface{})
 
-  pp.Print(hash)
   uncastUid := hmmm[hash]
   if uncastUid == nil {
     return "", ErrInvalidHash
@@ -127,8 +126,11 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
   go checkPermittedFileId(checkPermissionCh, waitGroup, projectId, objectId, userIdInPath, fileId)
 
   authHeader := request.Headers["Authorization"]
-  userIdInAuthHeader, err := auth(authHeader)
-  if userIdInAuthHeader != userIdInPath {
+  userIdFromAuthHeader, err := auth(authHeader)
+  fmt.Printf("userIdFromAuthHeader: %s\n", userIdFromAuthHeader)
+  fmt.Printf("userIdInPath: %s\n", userIdInPath)
+  fmt.Printf("s3Key: %s\n", s3Key)
+  if userIdFromAuthHeader != userIdInPath {
     err = ErrInvalidHash
   }
   if err != nil {
@@ -141,7 +143,7 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
     log := fmt.Sprintf("userIdInPath:%s/authHeader:%s", userIdInPath, authHeader)
     outputLog2CloudWatch(userIdInPath, s3Key, log)
     return events.APIGatewayProxyResponse{
-      Body      : body,
+      Body      : fmt.Sprintf("{\"error\":\"%s\"}", body),
       StatusCode: code,
     }, nil
   }
@@ -151,7 +153,7 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
     body := "Internal server error (Error code: 003)"
     outputLog2CloudWatch(userIdInPath, s3Key, body)
     return events.APIGatewayProxyResponse{
-      Body      : body,
+      Body      : fmt.Sprintf("{\"error\":\"%s\"}", body),
       StatusCode: 500,
     }, nil
   }
@@ -162,25 +164,17 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
     body := "The requested file id is invalid for you. (Error code: 004)"
     outputLog2CloudWatch(userIdInPath, s3Key, body)
     return events.APIGatewayProxyResponse{
-      Body      : body,
+      Body      : fmt.Sprintf("{\"error\":\"%s\"}", body),
       StatusCode: 403,
     }, nil
   }
 
   outputLog2CloudWatch(userIdInPath, s3Key, "succeeded")
 	return events.APIGatewayProxyResponse{
-    Body      : presignedUrl,
+    Body      : fmt.Sprintf("{\"url\":\"%s\"}", presignedUrl),
 		StatusCode: 302,
     Headers   : map[string]string{"Location": presignedUrl},
 	}, nil
-}
-
-func keys(m map[string]string) []string {
-    ks := []string{}
-    for k, _ := range m {
-        ks = append(ks, k)
-    }
-    return ks
 }
 
 func main() {
