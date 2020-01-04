@@ -5,16 +5,27 @@ Description: >
   
   Sample SAM Template for members_only_cdn
 
+Parameters:
+  StageName:
+    Type: String
+    AllowedValues:
+    - development
+    - staging
+    - production
+    Default: staging
+
 # More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
   Function:
     Timeout: 5
+  Api:
+    OpenApiVersion: '3.0.0'  # https://github.com/awslabs/serverless-application-model/issues/191
 
 Resources:
   MembersOnlyCdnAPI:
     Type: AWS::Serverless::Api
     Properties:
-      StageName: Stage
+      StageName: !Ref StageName
       DefinitionBody:
         Fn::Transform:
           Name: AWS::Include
@@ -35,9 +46,10 @@ Resources:
           # Uncomment when local deploy: AWS_REGION: us-west-2
           # Uncomment when local deploy: AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
           # Uncomment when local deploy: AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
-          DYNAMO_DB_TABLE_NAME: members-only-cdn-access-logs
+          DYNAMO_DB_TABLE_NAME: members-only-cdn-permissions
           CLOUD_WATCH_LOG_GROUP_NAME: members-only-cdn
           CLOUD_WATCH_ENABLE_SETUP: 'true'
+          ENABLE_COLOR_PP: 'false'
 
 
 Outputs:
