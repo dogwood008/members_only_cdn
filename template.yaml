@@ -46,7 +46,8 @@ Resources:
       Environment:
         Variables:
           USER_TOKEN_MAP_JSON: '{"Maps":{"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad": "001"}}'
-          BUCKET_NAME: !Sub '${ResourcePrefix}-members-only-cdn'
+          DL_BUCKET_NAME: !Sub '${ResourcePrefix}-members-only-cdn'
+          UL_BUCKET_NAME: !Sub '${ResourcePrefix}-members-only-cdn'
           DYNAMO_DB_TABLE_NAME: members-only-cdn-permissions
           CLOUD_WATCH_LOG_GROUP_NAME: members-only-cdn
           CLOUD_WATCH_ENABLE_SETUP: 'true'
@@ -64,6 +65,7 @@ Resources:
             Effect: Allow
             Action:
               - 's3:GetObject'
+              - 's3:PutObject'
               - 'logs:CreateLogStream'
               - 'logs:DescribeLogGroups'
               - 'lambda:InvokeFunction'
