@@ -9,7 +9,7 @@ servers:
 paths:
   '/v1/projects/{project_id}/objects/{object_id}/users/{user_id}/files/{file_id}':
     get:
-      summary: Your GET endpoint
+      summary: GET a file through S3 pre-signed URL
       operationId: get-contest_name-object_name-user_id-id_full
       tags: []
       parameters:
@@ -35,6 +35,60 @@ paths:
             type: string
       responses:
         '302':
+          description: an S3 pre-signed URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Url"
+        '403':
+          description: Auth error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      description: ''
+      x-amazon-apigateway-integration:
+        uri:
+          'Fn::Sub': 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MembersOnlyCdnFunction.Arn}/invocations'
+        passthroughBehavior: when_no_templates
+        httpMethod: POST  # https://dev.classmethod.jp/server-side/serverless/sam-try-and-error/#toc-execution-failed-due-to-configuration-error-malformed-lambda-proxy-response
+        type: aws_proxy
+      x-amazon-apigateway-auth:
+        type: none
+  '/v1/projects/{project_id}/objects/{object_id}/users/{user_id}/files/{file_id}/upload':
+    get:
+      summary: PUT a file through S3 pre-signed URL
+      operationId: get-contest_name-object_name-user_id-id_full-upload
+      tags: []
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: object_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: file_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
           description: an S3 pre-signed URL
           content:
             application/json:
