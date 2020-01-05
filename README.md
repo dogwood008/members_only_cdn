@@ -11,6 +11,8 @@ This is a Golang sample SAM (Serverless Application Model) project that made fro
 - [members_only_cdn](#membersonlycdn)
 	- [What is this?](#what-is-this)
 	- [What can this do?](#what-can-this-do)
+		- [Download a file from S3](#download-a-file-from-s3)
+		- [Upload a file to S3](#upload-a-file-to-s3)
 	- [Directories](#directories)
 	- [Requirements](#requirements)
 	- [Setup process](#setup-process)
@@ -28,6 +30,8 @@ This is a Golang sample SAM (Serverless Application Model) project that made fro
 
 ## What can this do?
 
+### Download a file from S3
+
 API Gateway を通して Lambda へアクセスすると、S3の指定のファイルへ10分間だけアクセスできるURLを発行します。
 
 302で応答するので、curlの `--location` オプションを使用すれば、自動的にS3からcurlがダウンロードしてくれます。
@@ -41,11 +45,23 @@ Request to a lambda through API Gateway, the lambda will respond 302 with a S3 p
 You can get files on S3 which only authorized users can see like below. But I recommend you to use [API Gateway Lambda Authorizers](https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-use-lambda-authorizer.html) because I didn't know this in development.
 
 ```bash
-curl -H 'Authorization: Bearer abc' http://localhost:3000/projects/a/objects/b/users/001/files/001.csv --location
+$ curl -H 'Authorization: Bearer abc' http://localhost:3000/projects/a/objects/b/users/001/files/001.csv --location
 ```
 
 **NOTE:** There is a [vulnerability bug](https://curl.haxx.se/docs/CVE-2018-1000007.html) ([explanation](https://stackoverflow.com/a/50005430)) in `curl < 7.58.0`.
 If you use the curl which version is less than 7.58.0, you will get `400` from S3 server because of multiple auth like "`Only one auth mechanism allowed`".
+
+### Upload a file to S3
+
+You can upload by like this:
+
+```bash
+$ curl 'Authorization: Bearer abc' 'http://localhost:3000/projects/a/objects/b/users/001/files/001.csv/upload'
+{"url":"https://dogwood008-members-only-cdn.s3.us-west-2.amazonaws.com/a/b/001asdb.csv?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAFOOBARBAZ%2F20200102%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20200102T171223Z&X-Amz-Expires=600&X-Amz-SignedHeaders=host&X-Amz-Signature=aee220359eec8a34262e641dff1990500123456789abcdef0123456789abcdef"}
+
+$ curl --upload-file $FILE_NAME "$THE_URL"
+```
+
 
 
 ## Directories
@@ -94,7 +110,7 @@ There are defined in `template.yaml`.
 - `CLOUD_WATCH_ENABLE_SETUP`
   - Whether create log stream and log group or not when which doesn't exist
 - `ENABLE_COLOR_PP`
-  - Output pp.Print in monochrome if set "false"
+  - Output pp.Print() in monochrome if set "false"
 
 And these envs are also needed in local development (you don't have to write in template.yaml, only in envs is enough):
 
@@ -110,7 +126,7 @@ And these envs are also needed in local development (you don't have to write in 
 In this example we use the built-in `go get` and the only dependency we need is AWS Lambda Go SDK:
 
 ```shell
-go get -u github.com/aws/aws-lambda-go/...
+$ go get -u github.com/aws/aws-lambda-go/...
 ```
 </p>
 </details>
@@ -124,8 +140,8 @@ Golang is a statically compiled language, meaning that in order to run it you ha
 You can issue the following command in a shell to build it:
 
 ```shell
-cd members-only-cdn
-make build
+$ cd members-only-cdn
+$ make build
 ```
 
 **NOTE**: If you're not building the function on a Linux machine, you will need to specify the `GOOS` and `GOARCH` environment variables, this allows Golang to build your function for another system architecture and ensure compatibility.
@@ -135,7 +151,7 @@ make build
 **Invoking function locally through local API Gateway**
 
 ```bash
-sam local start-api
+$ sam local start-api --parameter-overrides ResourcePrefix=dogwood008
 ```
 
 If the previous command ran successfully you should now be able to hit the following local endpoint to invoke your function
@@ -147,7 +163,7 @@ http://localhost:3000/v1/projects/foo/objects/bar/users/001/files/12345
 ```
 **NOTE**: You have to add bearer token to header as this:
 ```shell
-curl -H 'Authorization: Bearer abc' http://localhost:3000/v1/projects/foo/objects/bar/users/001/files/12345.csv
+$ curl -H 'Authorization: Bearer abc' http://localhost:3000/v1/projects/foo/objects/bar/users/001/files/12345.csv
 ```
 Then, you will get a URL which is S3 pre-signed URL like this:
 
@@ -175,7 +191,7 @@ AWS Lambda Python runtime requires a flat folder with all dependencies including
 To deploy your application for the first time, run the following in your shell:
 
 ```bash
-sam deploy --guided --parameter-overrides 'StageName=staging ResourcePrefix=dogwood008'
+$ sam deploy --guided --parameter-overrides 'StageName=staging ResourcePrefix=dogwood008'
 ```
 
 The command will package and deploy your application to AWS, with a series of prompts:
@@ -195,7 +211,7 @@ You can find your API Gateway Endpoint URL in the output values displayed after 
 We use `testing` package that is built-in in Golang and you can simply run the following command to run our tests:
 
 ```shell
-go test -v ./hello-world/
+$ go test -v ./hello-world/
 ```
 </p>
 </details>
