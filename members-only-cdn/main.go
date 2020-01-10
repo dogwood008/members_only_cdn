@@ -35,24 +35,22 @@ var (
 	// ErrNon200Response non 200 status code in response
 	ErrNon200Response = errors.New("Non 200 Response found")
 
-	ErrInvalidHash = errors.New("Given Auth Token is Invalid")
-	ErrNoUserHashs = errors.New("UserID Hash Map is Empty")
-  ErrInvalidDlOrUl = errors.New("Given was not \"UL\" or \"DB\"")
+	errInvalidHash = errors.New("Given Auth Token is Invalid")
+	errNoUserHashs = errors.New("UserID Hash Map is Empty")
+  errInvalidDlOrUl = errors.New("Given was not \"UL\" or \"DB\"")
 
-  EnvMapJsonString  = os.Getenv("USER_TOKEN_MAP_JSON")
-  EnvS3ULBucketName   = os.Getenv("UL_BUCKET_NAME")
-  EnvS3DLBucketName   = os.Getenv("DL_BUCKET_NAME")
-  EnvLogGroupName   = os.Getenv("CLOUD_WATCH_LOG_GROUP_NAME")
-  EnvCloudWatchSetup = getEnv("CLOUD_WATCH_ENABLE_SETUP", "false") == "true"
+  envMapJSONString  = os.Getenv("USER_TOKEN_MAP_JSON")
+  envS3ULBucketName   = os.Getenv("UL_BUCKET_NAME")
+  envS3DLBucketName   = os.Getenv("DL_BUCKET_NAME")
+  envLogGroupName   = os.Getenv("CLOUD_WATCH_LOG_GROUP_NAME")
+  envCloudWatchSetup = getEnv("CLOUD_WATCH_ENABLE_SETUP", "false") == "true"
 
-  EnvAWSRegion = os.Getenv("AWS_REGION")
-  EnvAWSAccessKeyId = os.Getenv("AWS_ACCESS_KEY_ID")
-  EnvAWSSecretAccessKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
+  envAWSRegion = os.Getenv("AWS_REGION")
 
-  AwsSession = session.New()
-  AwsConfig  = aws.NewConfig().WithRegion(EnvAWSRegion)
+  awsSession = session.New()
+  awsConfig  = aws.NewConfig().WithRegion(envAWSRegion)
 
-  cloudWatchLogs = cwlogs.CWLogs {Setup: EnvCloudWatchSetup, LogGroupName: &EnvLogGroupName}
+  cloudWatchLogs = cwlogs.CWLogs {Setup: envCloudWatchSetup, LogGroupName: &envLogGroupName}
 )
 
 type Params struct {
@@ -73,7 +71,7 @@ func getEnv(key, fallback string) string {
 
 func userId(hash string, jsonString string) (string, error) {
   if jsonString == "" {
-    return "", ErrNoUserHashs
+    return "", errNoUserHashs
   }
   var extractedUserId string
   var intf interface{}
@@ -84,7 +82,7 @@ func userId(hash string, jsonString string) (string, error) {
 
   uncastUid := hmmm[hash]
   if uncastUid == nil {
-    return "", ErrInvalidHash
+    return "", errInvalidHash
   }
   extractedUserId = uncastUid.(string)
   return extractedUserId, nil
@@ -95,13 +93,13 @@ func auth(authHeader string) (string, error) {
   authRawToken = strings.Replace(authHeader, "Bearer ", "", 1)
   bytes := sha256.Sum256([]byte(authRawToken))
   hexToken = hex.EncodeToString(bytes[:])
-  uid, err := userId(hexToken, EnvMapJsonString)
+  uid, err := userId(hexToken, envMapJSONString)
   return uid, err
 }
 
 func s3GetUrlWithPreSign (keyName string, bucketName string, region string) (string, error) {
   // https://qiita.com/sakayuka/items/1328c1ad93f9b982a0d5
-  svc := s3.New(AwsSession, AwsConfig)
+  svc := s3.New(awsSession, awsConfig)
   req, _ := svc.GetObjectRequest(&s3.GetObjectInput{
     Bucket: aws.String(bucketName),
     Key:    aws.String(keyName),
@@ -124,7 +122,7 @@ func s3UrlWithPreSign (dlOrUl string, keyName string, bucketName string, region 
     case "DL": return s3GetUrlWithPreSign(keyName, bucketName, region)
     case "UL": return s3PutUrlWithPreSign(keyName, bucketName, region)
   }
-  return "", ErrInvalidDlOrUl
+  return "", errInvalidDlOrUl
 }
 
 // https://docs.aws.amazon.com/sdk-for-go/api/service/s3/#PutObjectInput
@@ -132,7 +130,7 @@ func s3UrlWithPreSign (dlOrUl string, keyName string, bucketName string, region 
 // https://docs.aws.amazon.com/AmazonS3/latest/dev/acl-overview.html#CannedACL
 // https://www.whatsajunting.com/posts/s3-presigned/
 func s3PutUrlWithPreSign (keyName string, bucketName string, region string) (string, error) {
-  svc := s3.New(AwsSession, AwsConfig)
+  svc := s3.New(awsSession, awsConfig)
   input := s3.PutObjectInput{
     Bucket:      aws.String(bucketName),
     Key:         aws.String(keyName),
@@ -178,7 +176,7 @@ func userIdFromAuthHeader (authHeader string, userIdInPath string) (string, erro
   fmt.Printf("userIdFromAuthHeader: %s\n", userIdFromAuthHeader)
   fmt.Printf("userIdInPath: %s\n", userIdInPath)
   if userIdFromAuthHeader != userIdInPath {
-    err = ErrInvalidHash
+    err = errInvalidHash
   }
   return userIdFromAuthHeader, err
 }
@@ -196,9 +194,9 @@ func buildErrorResponseForAuthHeader(err error, userIdInPath string, s3Key strin
   var code int
   var body string
   switch err {
-  case ErrNoUserHashs:
+  case errNoUserHashs:
     code = 500; body = "Server setup does not finished. (Error code: 001)"
-  case ErrInvalidHash:
+  case errInvalidHash:
     code = 403; body = "Invalid auth token given. (Error code: 002)"
   default:
     code = 500; body = "InternalServerError. (Error code: 005)"
@@ -240,8 +238,8 @@ func workflow(request events.APIGatewayProxyRequest, params *Params, dlOrUl stri
   var bucketName string
   var successCode int
   switch dlOrUl {
-    case "DL": successCode = 302; bucketName = EnvS3DLBucketName
-    case "UL": successCode = 200; bucketName = EnvS3ULBucketName
+    case "DL": successCode = 302; bucketName = envS3DLBucketName
+    case "UL": successCode = 200; bucketName = envS3ULBucketName
     default:
       pp.Print("Invalid dlOrUl given: %s", dlOrUl)
       return buildCannotLoggingToCloudWatchErrorResponse(), nil
@@ -256,14 +254,14 @@ func workflow(request events.APIGatewayProxyRequest, params *Params, dlOrUl stri
   s3Key := fmt.Sprintf("/%s/%s/%s", params.ProjectId, params.ObjectId, params.FileId)
   userIdFromAuthHeader, err := userIdFromAuthHeader(request.Headers["Authorization"], params.UserIdInPath)
   if userIdFromAuthHeader != params.UserIdInPath {
-    err = ErrInvalidHash
+    err = errInvalidHash
   }
   if err != nil {
     return buildErrorResponseForAuthHeader(err, params.UserIdInPath, s3Key, bucketName), nil
   }
   fmt.Printf("s3Key: %s\n", s3Key)
 
-  presignedUrl, err := s3UrlWithPreSign(dlOrUl, s3Key, bucketName, EnvAWSRegion)
+  presignedUrl, err := s3UrlWithPreSign(dlOrUl, s3Key, bucketName, envAWSRegion)
   if err != nil {
     return buildErrorResponseWithS3Url(params.UserIdInPath, s3Key, bucketName), nil
   }
