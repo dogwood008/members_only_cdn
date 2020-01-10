@@ -6,7 +6,8 @@ Description: >
   Sample SAM Template for members_only_cdn
 
 # https://github.com/awslabs/aws-sam-cli/issues/1163
-# hit this to deploy: `sam deploy --parameter-overrides 'StageName=staging ResourcePrefix=dogwood008'`
+# hit this to deploy: `sam deploy --parameter-overrides 'StageName=staging'`
+# https://docs.aws.amazon.com/ja_jp/AWSCloudFormation/latest/UserGuide/parameters-section-structure.html
 Parameters:
   StageName:
     Type: String
@@ -14,9 +15,21 @@ Parameters:
     - development
     - staging
     - production
-    Default: staging  # should not be work fine
-  ResourcePrefix:
+    Default: staging
+  DLS3BucketName:
     Type: String
+  PermissionsDynamoDBName:
+    Type: String
+  CloudWatchLogsLogGroupName:
+    Type: String
+  DDBProvisionedThroughputRCU:
+    Type: Number
+    MinValue: 1
+    Default: 1
+  DDBProvisionedThroughputWCU:
+    Type: Number
+    MinValue: 1
+    Default: 1
 
 Globals:
   Function:
@@ -25,6 +38,7 @@ Globals:
     OpenApiVersion: '3.0.0'  # https://github.com/awslabs/serverless-application-model/issues/191
 
 Resources:
+  # https://docs.aws.amazon.com/ja_jp/serverless-application-model/latest/developerguide/sam-resource-api.html
   MembersOnlyCdnAPI:
     Type: AWS::Serverless::Api
     Properties:
@@ -33,23 +47,23 @@ Resources:
         Fn::Transform:  # https://dev.classmethod.jp/cloud/aws/serverless-swagger-apigateway/#toc-aws-sam1
           Name: AWS::Include
           Parameters:
-            Location: ./members-only-cdn/swagger.yaml
- 
-  # https://dev.classmethod.jp/cloud/aws/serverless-swagger-apigateway/
+            Location: ./src/swagger.yaml
+
+  # https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html
   MembersOnlyCdnFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: members-only-cdn/
+      CodeUri: src/
       Handler: members-only-cdn
       Runtime: go1.x
       Tracing: Active
       Environment:
         Variables:
           USER_TOKEN_MAP_JSON: '{"Maps":{"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad": "001"}}'
-          DL_BUCKET_NAME: !Sub '${ResourcePrefix}-members-only-cdn'
-          UL_BUCKET_NAME: !Sub '${ResourcePrefix}-members-only-cdn'
-          DYNAMO_DB_TABLE_NAME: members-only-cdn-permissions
-          CLOUD_WATCH_LOG_GROUP_NAME: members-only-cdn
+          DL_BUCKET_NAME: !Ref DLS3BucketName
+          UL_BUCKET_NAME: !Ref DLS3BucketName  # Or give name only for upload s3
+          DYNAMO_DB_TABLE_NAME: !Ref PermissionsDynamoDBName
+          CLOUD_WATCH_LOG_GROUP_NAME: !Ref CloudWatchLogsLogGroupName
           CLOUD_WATCH_ENABLE_SETUP: 'true'
           ENABLE_COLOR_PP: 'false'
 
@@ -87,7 +101,19 @@ Resources:
       Roles:
         - Ref: MembersOnlyCdnFunctionRole  # https://dev.classmethod.jp/cloud/aws/aws-sam-policy-role-used/#toc-1
 
+  # https://docs.aws.amazon.com/ja_jp/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket.html
+  DLS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref DLS3BucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
   # https://dev.classmethod.jp/server-side/serverless/sam-try-and-error/#toc-invalid-permissions-on-lambda-function
+  # https://docs.aws.amazon.com/ja_jp/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-permission.html
   MembersOnlyCdnLambdaPermission:
     Type: AWS::Lambda::Permission
     Properties:
@@ -95,15 +121,47 @@ Resources:
       FunctionName: !Ref MembersOnlyCdnFunction
       Principal: apigateway.amazonaws.com
 
+  # https://docs.aws.amazon.com/ja_jp/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html
+  PermissionsDynamoDB:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: project_id_object_id
+          AttributeType: S
+        - AttributeName: project_id
+          AttributeType: S
+        - AttributeName: object_id
+          AttributeType: S
+        - AttributeName: file_id
+          AttributeType: S
+      BillingMode: PROVISIONED
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: project_id_object_id
+          KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: !Ref DDBProvisionedThroughputRCU
+        WriteCapacityUnits: !Ref DDBProvisionedThroughputWCU
+      TableName: !Ref PermissionsDynamoDBName
+
 Outputs:
   MembersOnlyCdnAPI:
     Description: "API Gateway endpoint URL"
     Value: !Sub "https://${MembersOnlyCdnAPI}.execute-api.${AWS::Region}.amazonaws.com/${StageName}/v1/"
   MembersOnlyCdnFunction:
-    Description: "First Lambda Function ARN"
+    Description: "Lambda Function ARN"
     Value: !GetAtt MembersOnlyCdnFunction.Arn
   MembersOnlyCdnFunctionIamRole:
     Description: "Implicit IAM Role created for Members Only CDN function"
     Value: !GetAtt MembersOnlyCdnFunctionRole.Arn
     # https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#properties
     # https://dev.classmethod.jp/cloud/aws/aws-sam-policy-role-used/#toc-1
+  DLS3Bucket:
+    Description: "The bucket to download from"
+    Value: !GetAtt DLS3Bucket.Arn
+  PermissionsDynamoDB:
+    Description: "The Dynamo DB which stores user's permission"
+    Value: !GetAtt PermissionsDynamoDB.Arn
