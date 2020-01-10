@@ -1,8 +1,8 @@
 package main
 
 import (
-	"errors"
-	"fmt"
+  "errors"
+  "fmt"
   "os"
   "strings"
   "time"
@@ -14,8 +14,8 @@ import (
   "encoding/hex"
   "encoding/json"
 
-	"github.com/aws/aws-lambda-go/events"
-	"github.com/aws/aws-lambda-go/lambda"
+  "github.com/aws/aws-lambda-go/events"
+  "github.com/aws/aws-lambda-go/lambda"
 
   "github.com/aws/aws-sdk-go/aws"
   "github.com/aws/aws-sdk-go/aws/session"
@@ -29,14 +29,14 @@ import (
 )
 
 var (
-	// ErrNoIP No IP found in response
-	ErrNoIP = errors.New("No IP in HTTP response")
+  // ErrNoIP No IP found in response
+  ErrNoIP = errors.New("No IP in HTTP response")
 
-	// ErrNon200Response non 200 status code in response
-	ErrNon200Response = errors.New("Non 200 Response found")
+  // ErrNon200Response non 200 status code in response
+  ErrNon200Response = errors.New("Non 200 Response found")
 
-	errInvalidHash = errors.New("Given Auth Token is Invalid")
-	errNoUserHashs = errors.New("UserID Hash Map is Empty")
+  errInvalidHash = errors.New("Given Auth Token is Invalid")
+  errNoUserHashs = errors.New("UserID Hash Map is Empty")
   errInvalidDlOrUl = errors.New("Given was not \"UL\" or \"DB\"")
 
   envMapJSONString  = os.Getenv("USER_TOKEN_MAP_JSON")
@@ -281,13 +281,13 @@ func workflow(request events.APIGatewayProxyRequest, params *Params, dlOrUl stri
   if dlOrUl == "DL" {
     respHeaders["Location"] = presignedUrl
   }
-	return events.APIGatewayProxyResponse{
+  return events.APIGatewayProxyResponse{
     Body      : fmt.Sprintf("{\"url\":\"%s\"}", presignedUrl),
-		StatusCode: successCode,
+    StatusCode: successCode,
     Headers   : respHeaders,
-	}, nil
+  }, nil
 }
 
 func main() {
-	lambda.Start(handler)
+  lambda.Start(handler)
 }
