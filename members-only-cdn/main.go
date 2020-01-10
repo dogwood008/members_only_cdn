@@ -29,12 +29,6 @@ import (
 )
 
 var (
-  // ErrNoIP No IP found in response
-  ErrNoIP = errors.New("No IP in HTTP response")
-
-  // ErrNon200Response non 200 status code in response
-  ErrNon200Response = errors.New("Non 200 Response found")
-
   errInvalidHash = errors.New("Given Auth Token is Invalid")
   errNoUserHashs = errors.New("UserID Hash Map is Empty")
   errInvalidDlOrUl = errors.New("Given was not \"UL\" or \"DB\"")
@@ -53,11 +47,11 @@ var (
   cloudWatchLogs = cwlogs.CWLogs {Setup: envCloudWatchSetup, LogGroupName: &envLogGroupName}
 )
 
-type Params struct {
-  ProjectId    string
-  ObjectId     string
-  UserIdInPath string
-  FileId       string
+type params struct {
+  ProjectID    string
+  ObjectID     string
+  UserIDInPath string
+  FileID       string
 }
 
 
@@ -69,23 +63,23 @@ func getEnv(key, fallback string) string {
     return fallback
 }
 
-func userId(hash string, jsonString string) (string, error) {
+func userID(hash string, jsonString string) (string, error) {
   if jsonString == "" {
     return "", errNoUserHashs
   }
-  var extractedUserId string
+  var extractedUserID string
   var intf interface{}
   bytes := []byte(jsonString)
   json.Unmarshal(bytes, &intf)
   hmm := intf.(map[string]interface{})
   hmmm :=hmm["Maps"].(map[string]interface{})
 
-  uncastUid := hmmm[hash]
-  if uncastUid == nil {
+  uncastUID := hmmm[hash]
+  if uncastUID == nil {
     return "", errInvalidHash
   }
-  extractedUserId = uncastUid.(string)
-  return extractedUserId, nil
+  extractedUserID = uncastUID.(string)
+  return extractedUserID, nil
 }
 
 func auth(authHeader string) (string, error) {
@@ -93,11 +87,11 @@ func auth(authHeader string) (string, error) {
   authRawToken = strings.Replace(authHeader, "Bearer ", "", 1)
   bytes := sha256.Sum256([]byte(authRawToken))
   hexToken = hex.EncodeToString(bytes[:])
-  uid, err := userId(hexToken, envMapJSONString)
+  uid, err := userID(hexToken, envMapJSONString)
   return uid, err
 }
 
-func s3GetUrlWithPreSign (keyName string, bucketName string, region string) (string, error) {
+func s3GetURLWithPreSign (keyName string, bucketName string, region string) (string, error) {
   // https://qiita.com/sakayuka/items/1328c1ad93f9b982a0d5
   svc := s3.New(awsSession, awsConfig)
   req, _ := svc.GetObjectRequest(&s3.GetObjectInput{
@@ -117,10 +111,10 @@ func fileType (keyName string) (string) {
   return mime.TypeByExtension(ext)
 }
 
-func s3UrlWithPreSign (dlOrUl string, keyName string, bucketName string, region string) (string, error) {
+func s3URLWithPreSign (dlOrUl string, keyName string, bucketName string, region string) (string, error) {
   switch dlOrUl {
-    case "DL": return s3GetUrlWithPreSign(keyName, bucketName, region)
-    case "UL": return s3PutUrlWithPreSign(keyName, bucketName, region)
+    case "DL": return s3GetURLWithPreSign(keyName, bucketName, region)
+    case "UL": return s3PutURLWithPreSign(keyName, bucketName, region)
   }
   return "", errInvalidDlOrUl
 }
@@ -129,7 +123,7 @@ func s3UrlWithPreSign (dlOrUl string, keyName string, bucketName string, region 
 // https://docs.aws.amazon.com/sdk-for-go/api/service/s3/#S3.PutObjectRequest
 // https://docs.aws.amazon.com/AmazonS3/latest/dev/acl-overview.html#CannedACL
 // https://www.whatsajunting.com/posts/s3-presigned/
-func s3PutUrlWithPreSign (keyName string, bucketName string, region string) (string, error) {
+func s3PutURLWithPreSign (keyName string, bucketName string, region string) (string, error) {
   svc := s3.New(awsSession, awsConfig)
   input := s3.PutObjectInput{
     Bucket:      aws.String(bucketName),
@@ -143,54 +137,53 @@ func s3PutUrlWithPreSign (keyName string, bucketName string, region string) (str
   return url, err
 }
 
-func outputLog2CloudWatch (userId string, s3Key string, bucketName string, err string) {
-  log := fmt.Sprintf(",%s,\"s3://%s%s\",\"%s\"", userId, bucketName, s3Key, err)
+func outputLog2CloudWatch (userID string, s3Key string, bucketName string, err string) {
+  log := fmt.Sprintf(",%s,\"s3://%s%s\",\"%s\"", userID, bucketName, s3Key, err)
   cloudWatchLogs.OutputLog2CloudWatch(&log)
 }
 
-func checkPermittedFileId (ch chan<- bool, waitGroup *sync.WaitGroup, params *Params) {
+func checkPermittedFileID (ch chan<- bool, waitGroup *sync.WaitGroup, params *params) {
   isOkToAllow := authorization.Authorize(
-    params.ProjectId, params.ObjectId, params.UserIdInPath, params.FileId)
+    params.ProjectID, params.ObjectID, params.UserIDInPath, params.FileID)
   ch <- isOkToAllow
   waitGroup.Done()
 }
 
-func params(request events.APIGatewayProxyRequest) (*Params) {
-  // Path: /projects/{project_id}/objects/{object_id}/users/{user_id}/files/{id_full}
-  params := request.PathParameters
-  projectId := params["project_id"]
-  objectId := params["object_id"]
-  userIdInPath := params["user_id"]
-  fileId := params["file_id"]
-  paramsStruct := Params {
-    ProjectId: projectId,
-    ObjectId: objectId,
-    UserIdInPath: userIdInPath,
-    FileId : fileId,
+func extractParams(request events.APIGatewayProxyRequest) (*params) {
+  // Path: /v1/projects/{project_id}/objects/{object_id}/users/{user_id}/files/{id_full}
+  p := request.PathParameters
+  projectID := p["project_id"]
+  objectID := p["object_id"]
+  userIDInPath := p["user_id"]
+  fileID := p["file_id"]
+  paramsStruct := params {
+    ProjectID: projectID,
+    ObjectID: objectID,
+    UserIDInPath: userIDInPath,
+    FileID : fileID,
   }
   return &paramsStruct
 }
 
-func userIdFromAuthHeader (authHeader string, userIdInPath string) (string, error){
-  userIdFromAuthHeader, err := auth(authHeader)
-  fmt.Printf("userIdFromAuthHeader: %s\n", userIdFromAuthHeader)
-  fmt.Printf("userIdInPath: %s\n", userIdInPath)
-  if userIdFromAuthHeader != userIdInPath {
+func userIDFromAuthHeader (authHeader string, userIDInPath string) (string, error){
+  userIDFromAuthHeader, err := auth(authHeader)
+  fmt.Printf("userIDFromAuthHeader: %s\n", userIDFromAuthHeader)
+  fmt.Printf("userIDInPath: %s\n", userIDInPath)
+  if userIDFromAuthHeader != userIDInPath {
     err = errInvalidHash
   }
-  return userIdFromAuthHeader, err
+  return userIDFromAuthHeader, err
 }
 
 func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-  params := params(request)
+  params := extractParams(request)
   if strings.HasSuffix(request.Path, "/upload") {
     return upload(request, params)
-  } else {
-    return download(request, params)
   }
+  return download(request, params)
 }
 
-func buildErrorResponseForAuthHeader(err error, userIdInPath string, s3Key string, bucketName string) (events.APIGatewayProxyResponse) {
+func buildErrorResponseForAuthHeader(err error, userIDInPath string, s3Key string, bucketName string) (events.APIGatewayProxyResponse) {
   var code int
   var body string
   switch err {
@@ -201,17 +194,17 @@ func buildErrorResponseForAuthHeader(err error, userIdInPath string, s3Key strin
   default:
     code = 500; body = "InternalServerError. (Error code: 005)"
   }
-  log := fmt.Sprintf("userIdFromAuthHeader:%s", userIdFromAuthHeader)
-  outputLog2CloudWatch(userIdInPath, s3Key, bucketName, log)
+  log := fmt.Sprintf("userIDFromAuthHeader:%s", userIDFromAuthHeader)
+  outputLog2CloudWatch(userIDInPath, s3Key, bucketName, log)
   return events.APIGatewayProxyResponse{
     Body      : fmt.Sprintf("{\"error\":\"%s\"}", body),
     StatusCode: code,
   }
 }
 
-func buildErrorResponseWithS3Url (userIdInPath string, s3Key string, bucketName string) (events.APIGatewayProxyResponse) {
+func buildErrorResponseWithS3URL (userIDInPath string, s3Key string, bucketName string) (events.APIGatewayProxyResponse) {
   body := "Internal server error (Error code: 003)"
-  outputLog2CloudWatch(userIdInPath, s3Key, bucketName, body)
+  outputLog2CloudWatch(userIDInPath, s3Key, bucketName, body)
   return events.APIGatewayProxyResponse{
     Body      : fmt.Sprintf("{\"error\":\"%s\"}", body),
     StatusCode: 500,
@@ -226,15 +219,15 @@ func buildCannotLoggingToCloudWatchErrorResponse () (events.APIGatewayProxyRespo
   }
 }
 
-func download(request events.APIGatewayProxyRequest, params *Params) (events.APIGatewayProxyResponse, error) {
+func download(request events.APIGatewayProxyRequest, params *params) (events.APIGatewayProxyResponse, error) {
   return workflow(request, params, "DL")
 }
 
-func upload(request events.APIGatewayProxyRequest, params *Params) (events.APIGatewayProxyResponse, error) {
+func upload(request events.APIGatewayProxyRequest, params *params) (events.APIGatewayProxyResponse, error) {
   return workflow(request, params, "UL")
 }
 
-func workflow(request events.APIGatewayProxyRequest, params *Params, dlOrUl string) (events.APIGatewayProxyResponse, error) {
+func workflow(request events.APIGatewayProxyRequest, params *params, dlOrUl string) (events.APIGatewayProxyResponse, error) {
   var bucketName string
   var successCode int
   switch dlOrUl {
@@ -249,40 +242,40 @@ func workflow(request events.APIGatewayProxyRequest, params *Params, dlOrUl stri
   waitGroup.Add(1)
   checkPermissionCh := make(chan bool, 1)
   defer close(checkPermissionCh)  // https://qiita.com/convto/items/b2e95e549f35a1beb0b8
-  go checkPermittedFileId(checkPermissionCh, waitGroup, params)
+  go checkPermittedFileID(checkPermissionCh, waitGroup, params)
 
-  s3Key := fmt.Sprintf("/%s/%s/%s", params.ProjectId, params.ObjectId, params.FileId)
-  userIdFromAuthHeader, err := userIdFromAuthHeader(request.Headers["Authorization"], params.UserIdInPath)
-  if userIdFromAuthHeader != params.UserIdInPath {
+  s3Key := fmt.Sprintf("/%s/%s/%s", params.ProjectID, params.ObjectID, params.FileID)
+  userIDFromAuthHeader, err := userIDFromAuthHeader(request.Headers["Authorization"], params.UserIDInPath)
+  if userIDFromAuthHeader != params.UserIDInPath {
     err = errInvalidHash
   }
   if err != nil {
-    return buildErrorResponseForAuthHeader(err, params.UserIdInPath, s3Key, bucketName), nil
+    return buildErrorResponseForAuthHeader(err, params.UserIDInPath, s3Key, bucketName), nil
   }
   fmt.Printf("s3Key: %s\n", s3Key)
 
-  presignedUrl, err := s3UrlWithPreSign(dlOrUl, s3Key, bucketName, envAWSRegion)
+  presignedURL, err := s3URLWithPreSign(dlOrUl, s3Key, bucketName, envAWSRegion)
   if err != nil {
-    return buildErrorResponseWithS3Url(params.UserIdInPath, s3Key, bucketName), nil
+    return buildErrorResponseWithS3URL(params.UserIDInPath, s3Key, bucketName), nil
   }
   waitGroup.Wait() // Wait for checking permissions in dynamodb
   isOkToAllow := <-checkPermissionCh
   if !isOkToAllow {
     body := "The requested file id is invalid for you. (Error code: 004)"
-    outputLog2CloudWatch(params.UserIdInPath, s3Key, bucketName, body)
+    outputLog2CloudWatch(params.UserIDInPath, s3Key, bucketName, body)
     return events.APIGatewayProxyResponse{
       Body      : fmt.Sprintf("{\"error\":\"%s\"}", body),
       StatusCode: 403,
     }, nil
   }
 
-  outputLog2CloudWatch(params.UserIdInPath, s3Key, bucketName, "succeeded")
+  outputLog2CloudWatch(params.UserIDInPath, s3Key, bucketName, "succeeded")
   respHeaders := map[string]string{}
   if dlOrUl == "DL" {
-    respHeaders["Location"] = presignedUrl
+    respHeaders["Location"] = presignedURL
   }
   return events.APIGatewayProxyResponse{
-    Body      : fmt.Sprintf("{\"url\":\"%s\"}", presignedUrl),
+    Body      : fmt.Sprintf("{\"url\":\"%s\"}", presignedURL),
     StatusCode: successCode,
     Headers   : respHeaders,
   }, nil
