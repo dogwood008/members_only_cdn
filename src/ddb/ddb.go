@@ -57,7 +57,7 @@ func Fetch(projectID string, objectID string, userID string) (*Permission, error
 
 /* for debug
 func main() {
-  resp, _ := fetch("a", "b", "001")
+  resp, _ := Fetch("a", "b", "001")
   pp.Print(resp)
 }
 */
