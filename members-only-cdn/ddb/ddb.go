@@ -13,28 +13,27 @@ import (
   // for debug: "github.com/k0kubun/pp"
 )
 
+// Permission table of users
 type Permission struct {
-  UserId     string `dynamo:"user_id"`
-  ProjectId  string `dynamo:"project_id"`
-  ObjectId   string `dynamo:"object_id"`
-  FileId     string `dynamo:"file_id"`
+  UserID     string `dynamo:"user_id"`
+  ProjectID  string `dynamo:"project_id"`
+  ObjectID   string `dynamo:"object_id"`
+  FileID     string `dynamo:"file_id"`
   UpdatedAt  time.Time `dynamo:"updated_at"`
-  ProjectIdAndObjectId  string `dynamo:"project_id_and_object_id"`
+  ProjectIDAndObjectID  string `dynamo:"project_id_and_object_id"`
 }
 
 var (
-	// ErrNoIP No IP found in response
-	ErrNoTableNameGiven = errors.New("No table name given.")
+  errNoTableNameGiven = errors.New("No table name given")
+  envDynamoDBTableName = os.Getenv("DYNAMO_DB_TABLE_NAME")
 
-  EnvDynamoDBTableName = os.Getenv("DYNAMO_DB_TABLE_NAME")
-
-  EnvAWSRegion = os.Getenv("AWS_REGION")
+  envAWSRegion = os.Getenv("AWS_REGION")
 
   awsSession = session.New()
-  awsConfig  = aws.NewConfig().WithRegion(EnvAWSRegion)
+  awsConfig  = aws.NewConfig().WithRegion(envAWSRegion)
 
   ddb = dynamo.New(awsSession, awsConfig)
-  table = ddb.Table(EnvDynamoDBTableName)
+  table = ddb.Table(envDynamoDBTableName)
 )
 
 const (
@@ -42,14 +41,14 @@ const (
   sortKeyName = "project_id_and_object_id"
 )
 
-
-func Fetch(projectId string, objectId string, userId string) (*Permission, error){
-  if len(EnvDynamoDBTableName) == 0 {
-    return nil, ErrNoTableNameGiven
+// Fetch from DynamoDB by projectID, objectID, userID.
+func Fetch(projectID string, objectID string, userID string) (*Permission, error){
+  if len(envDynamoDBTableName) == 0 {
+    return nil, errNoTableNameGiven
   }
 
-  partitionKey := userId
-  sortKey := fmt.Sprintf("%s_%s", projectId, objectId)
+  partitionKey := userID
+  sortKey := fmt.Sprintf("%s_%s", projectID, objectID)
 
   var result Permission
   err := table.Get(partitionKeyName, partitionKey).Range(sortKeyName, dynamo.Equal, sortKey).One(&result)

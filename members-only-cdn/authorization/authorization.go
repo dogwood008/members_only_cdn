@@ -2,8 +2,6 @@ package authorization
 
 import (
   "os"
-  "time"
-  "errors"
   "strconv"
   "regexp"
 
@@ -14,23 +12,11 @@ import (
   "github.com/dogwood008/members_only_cdn/ddb"
 )
 
-type Permission struct {
-  UserId     string `dynamo:"user_id"`
-  ProjectId  string `dynamo:"project_id"`
-  ObjectId   string `dynamo:"object_id"`
-  FileId     string `dynamo:"file_id"`
-  UpdatedAt  time.Time `dynamo:"updated_at"`
-  ProjectIdAndObjectId  string `dynamo:"project_id_and_object_id"`
-}
-
 var (
-	// ErrNoIP No IP found in response
-	ErrNoTableNameGiven = errors.New("No table name given.")
-
-  EnvAWSRegion = os.Getenv("AWS_REGION")
+  envAWSRegion = os.Getenv("AWS_REGION")
 
   awsSession = session.New()
-  awsConfig  = aws.NewConfig().WithRegion(EnvAWSRegion)
+  awsConfig  = aws.NewConfig().WithRegion(envAWSRegion)
 )
 
 const (
@@ -45,18 +31,19 @@ func convertAtoI(str string) int {
   return value
 }
 
-func Authorize(projectId string, objectId string, userId string, requestedFileId string) bool {
-  requestedFileIdInt := convertAtoI(requestedFileId)
-  permission, err := ddb.Fetch(projectId, objectId, userId)
+// Authorize and returns whether the user can access the file.
+func Authorize(projectID string, objectID string, userID string, requestedFileID string) bool {
+  requestedFileIDInt := convertAtoI(requestedFileID)
+  permission, err := ddb.Fetch(projectID, objectID, userID)
   if err != nil {
     pp.Print(err)
     return false
   }
-  allowedFileId := convertAtoI(permission.FileId)
-  /*pp.Println(requestedFileIdInt)
-  pp.Println(allowedFileId)
+  allowedFileID := convertAtoI(permission.FileID)
+  /*pp.Println(requestedFileIDInt)
+  pp.Println(allowedFileID)
   pp.Println(permission)*/
-  return requestedFileIdInt <= allowedFileId
+  return requestedFileIDInt <= allowedFileID
 }
 
 func init () {
