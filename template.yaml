@@ -18,9 +18,9 @@ Parameters:
     Default: staging
   DLS3BucketName:
     Type: String
-  PermissionsDynamoDBName:
-    Type: String
   CloudWatchLogsLogGroupName:
+    Type: String
+  PermissionsDynamoDBName:
     Type: String
   DDBProvisionedThroughputRCU:
     Type: Number
@@ -88,7 +88,7 @@ Resources:
             Resource:
               - !Sub 'arn:aws:dynamodb:*:${AWS::AccountId}:table/members-only-cdn-permissions'
               - !Sub 'arn:aws:lambda:*:${AWS::AccountId}:function:*'
-              - !Sub 'arn:aws:s3:::${ResourcePrefix}-members-only-cdn/*'
+              - !Sub 'arn:aws:s3:::${DLS3BucketName}/*'
               - 'arn:aws:logs:*:*:log-group:*'
           -
             Effect: Allow
@@ -130,12 +130,12 @@ Resources:
           AttributeType: S
         - AttributeName: project_id_object_id
           AttributeType: S
-        - AttributeName: project_id
-          AttributeType: S
-        - AttributeName: object_id
-          AttributeType: S
-        - AttributeName: file_id
-          AttributeType: S
+        # - AttributeName: project_id  Cannot define here except for partition key and sort key
+        #   AttributeType: S
+        # - AttributeName: object_id
+        #   AttributeType: S
+        # - AttributeName: file_id
+        #   AttributeType: S
       BillingMode: PROVISIONED
       KeySchema:
         - AttributeName: user_id
