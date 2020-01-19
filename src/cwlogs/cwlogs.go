@@ -34,11 +34,11 @@ func (cwl *CWLogs) nextCloudWatchSequenceToken (logStreamNamePrefix *string) str
   if err != nil || len(resp.LogStreams) == 0 {
     return ""
   }
-  if nextTokenAddr := resp.LogStreams[0].UploadSequenceToken; nextTokenAddr == nil {
+  nextTokenAddr := resp.LogStreams[0].UploadSequenceToken
+  if nextTokenAddr == nil {
     return ""
-  } else {
-    return *nextTokenAddr
   }
+  return *nextTokenAddr
 }
 
 // https://docs.aws.amazon.com/sdk-for-go/api/service/cloudwatchlogs/#CloudWatchLogs.CreateLogGroup
@@ -55,6 +55,7 @@ func (cwl *CWLogs) createLogStream (logStreamName *string) {
   svc.CreateLogStream(&input)
 }
 
+// OutputLog2CloudWatch with log body string.
 // https://docs.aws.amazon.com/sdk-for-go/api/service/cloudwatchlogs/#CloudWatchLogs.PutLogEvents
 // https://docs.aws.amazon.com/sdk-for-go/api/service/cloudwatchlogs/#PutLogEventsInput
 // https://docs.aws.amazon.com/sdk-for-go/api/service/cloudwatchlogs/#InputLogEvent
